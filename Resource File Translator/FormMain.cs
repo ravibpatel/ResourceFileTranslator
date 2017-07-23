@@ -144,7 +144,7 @@ namespace Resource_File_Translator
                 Debug.WriteLine(ex.ToString());
                 return null;
             }
-
+            page = page.Replace("<div dir=\"rtl\" class=\"t0\">", "<div dir=\"ltr\" class=\"t0\">");
             page = page.Remove(0, page.IndexOf("<div dir=\"ltr\" class=\"t0\">", StringComparison.Ordinal)).Replace("<div dir=\"ltr\" class=\"t0\">", "");
             int last = page.IndexOf("</div>", StringComparison.Ordinal);
             page = page.Remove(last, page.Length - last);
@@ -216,44 +216,71 @@ namespace Resource_File_Translator
             foreach (var targetLanguage in targetLanguages)
             {
                 var translations = new Dictionary<string, string>();
-                foreach (var stringResource in stringResources)
+                var targetFileName = $"{outputDirectory}{Path.DirectorySeparatorChar}{new CultureInfo(targetLanguage).EnglishName}.lang";
+                if (File.Exists(targetFileName))
                 {
-                    translationsDone++;
-                    if (translations.ContainsKey(stringResource.Key))
-                        continue;
-                    translations.Add(stringResource.Key, Translate("auto", targetLanguage, stringResource.Value));
-                    backgroundWorker.ReportProgress((translationsDone * 100 / totalTranslations));
-                }
-                var langFileContents = File.ReadAllLines(sourceFile);
-                var destinationFileContents = new string[langFileContents.Length];
-                var lastIndex = 0;
-                for (int index = 0; index < langFileContents.Length; index++)
-                {
-                    var langFileContent = langFileContents[index];
-                    if (langFileContent.StartsWith(";"))
+                    var targetResources = ReadLangFile(targetFileName);
+                    foreach (var stringResource in stringResources)
                     {
-                        destinationFileContents[index] = langFileContent.Replace("English", (new CultureInfo(targetLanguage)).EnglishName);
+                        translationsDone++;
+                        if (targetResources.ContainsKey(stringResource.Key))
+                            continue;
+                        if (translations.ContainsKey(stringResource.Key))
+                            continue;
+                        translations.Add(stringResource.Key, Translate("auto", targetLanguage, stringResource.Value));
+                        backgroundWorker.ReportProgress(translationsDone * 100 / totalTranslations);
                     }
-                    if (langFileContent.StartsWith("locale"))
+                    using (StreamWriter streamWriter = File.AppendText(targetFileName))
                     {
-                        var parent = CultureInfo.GetCultureInfo(targetLanguage);
-                        var regionalLanguages = CultureInfo.GetCultures(CultureTypes.AllCultures)
-                                                           .Where(x => x.Parent.Equals(parent));
-                        destinationFileContents[index] = $"locale {String.Join(", ", regionalLanguages)}";
-                    }
-                    if (langFileContent.StartsWith("(") || langFileContent.StartsWith("!"))
-                    {
-                        lastIndex = index;
-                        break;
+                        foreach (var translation in translations)
+                        {
+                            streamWriter.WriteLine($"{translation.Key} = {translation.Value}");
+                        }
                     }
                 }
-                foreach (var translation in translations)
+                else
                 {
-                    destinationFileContents[lastIndex] = $"{translation.Key} = {translation.Value}";
-                    lastIndex++;
+                    foreach (var stringResource in stringResources)
+                    {
+                        translationsDone++;
+                        if (translations.ContainsKey(stringResource.Key))
+                            continue;
+                        translations.Add(stringResource.Key, Translate("auto", targetLanguage, stringResource.Value));
+                        backgroundWorker.ReportProgress(translationsDone * 100 / totalTranslations);
+                    }
+                    var langFileContents = File.ReadAllLines(sourceFile);
+                    var destinationFileContents = new string[langFileContents.Length];
+                    var lastIndex = 0;
+                    for (int index = 0; index < langFileContents.Length; index++)
+                    {
+                        var langFileContent = langFileContents[index];
+                        if (langFileContent.StartsWith(";"))
+                        {
+                            destinationFileContents[index] =
+                                langFileContent.Replace("English", new CultureInfo(targetLanguage).EnglishName);
+                        }
+                        if (langFileContent.StartsWith("locale"))
+                        {
+                            var parent = CultureInfo.GetCultureInfo(targetLanguage);
+                            var regionalLanguages = CultureInfo.GetCultures(CultureTypes.AllCultures)
+                                .Where(x => x.Parent.Equals(parent));
+                            destinationFileContents[index] = $"locale {String.Join(", ", regionalLanguages)}";
+                        }
+                        if (langFileContent.StartsWith("(") || langFileContent.StartsWith("!"))
+                        {
+                            lastIndex = index;
+                            break;
+                        }
+                    }
+                    foreach (var translation in translations)
+                    {
+                        destinationFileContents[lastIndex] = $"{translation.Key} = {translation.Value}";
+                        lastIndex++;
+                    }
+                    File.WriteAllLines(
+                        targetFileName, destinationFileContents,
+                        Encoding.UTF8);
                 }
-                File.WriteAllLines(
-                    $"{outputDirectory}{Path.DirectorySeparatorChar}{(new CultureInfo(targetLanguage)).EnglishName}.lang", destinationFileContents, Encoding.UTF8);
             }
         }
 
