@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Web;
 using System.Windows.Forms;
 using System.Xml;
 
@@ -149,23 +150,15 @@ namespace Resource_File_Translator
             int last = page.IndexOf("</div>", StringComparison.Ordinal);
             page = page.Remove(last, page.Length - last);
 
-            return page;
+            return EscapeTranslatedText(HttpUtility.HtmlDecode(page));
         }
 
-        //private static string EscapeTranslatedText(string text)
-        //{
-        //    return
-        //        text.Replace(" .", ".")
-        //            .Replace(" ?", "?")
-        //            .Replace(" !", "!")
-        //            .Replace("{ ", "{")
-        //            .Replace(" }", "}")
-        //            .Replace(" ;", ";")
-        //            .Replace("[ ", "[")
-        //            .Replace(" ]", "]")
-        //            .Replace("( ", "(")
-        //            .Replace(" )", ")");
-        //}
+        private static string EscapeTranslatedText(string text)
+        {
+            return
+                text.Replace("/ ", "/")
+                    .Replace(@"\ ", @"\");
+        }
 
         private static List<String> ReadRESX(string path)
         {
