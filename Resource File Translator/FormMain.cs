@@ -179,7 +179,25 @@ namespace Resource_File_Translator
         private static Dictionary<string, string> ReadLangFile(string path)
         {
             string[] lines = File.ReadAllLines(path);
-            return (from line in lines where !line.StartsWith(";") && !line.StartsWith("locale") where line.StartsWith("(") || line.StartsWith("!") select line.Split('=')).ToDictionary(splitLine => splitLine[0].Trim(), splitLine => splitLine[1].Trim());
+            Dictionary<string, string> dictionary = new Dictionary<string, string>();
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var line = lines[index];
+                if (!line.StartsWith(";") && !line.StartsWith("locale"))
+                {
+                    if (line.StartsWith("(") || line.StartsWith("!"))
+                    {
+                        string[] strings = line.Split('=');
+                        if (dictionary.ContainsKey(strings[0].Trim()))
+                        {
+                            MessageBox.Show($@"Duplicate element found on line {index + 1} in file ""{path}"".");
+                            continue;
+                        }
+                        dictionary.Add(strings[0].Trim(), strings[1].Trim());
+                    }
+                }
+            }
+            return dictionary;
         }  
 
         private void buttonTranslate_Click(object sender, EventArgs e)
